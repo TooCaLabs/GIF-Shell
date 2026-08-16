@@ -27,3 +27,5 @@ Check `HOW_TO_USE.txt` after _downloading_ or *inside* the **source code**.
 ```zsh
 rm -rf /tmp/GIF-Shell && git clone --depth 1 https://github.com/TooCaLabs/GIF-Shell.git /tmp/GIF-Shell && /tmp/GIF-Shell/install.sh && source ~/.config/gif/xdg/fish/config.fish
 ```
+
+DISCLAIMER: THIS SHELL IS MADE FOR SPECIFICALLY AI'S RUNNING COMMANDS IN SANDBOXES, AND THE IMPROVEMENTS ARE NOT FOCUSED TOWARD HUMANS ONLY
