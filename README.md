@@ -20,3 +20,9 @@ gif
 # How to use:
 
 Check `HOW_TO_USE.txt` after _downloading_ or *inside* the **source code**.
+
+# UPDATE
+
+```sh
+cd /Users/goldknow/GIF && git pull && ./install.sh && exec gif
+```
