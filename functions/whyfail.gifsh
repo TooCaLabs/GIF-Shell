@@ -1,0 +1,49 @@
+function whyfail --description "Rerun last failed command with verbose/debug flags"
+    argparse 'help' -- $argv
+    or return 1
+
+    if set -q _flag_help
+        echo "Usage: whyfail"
+        echo "  Reruns the last failed command with verbose / set -x tracing."
+        return 0
+    end
+
+    if not set -q __gif_last_failed_cmd
+        or test -z "$__gif_last_failed_cmd"
+        echo "whyfail: no failed command recorded this session" >&2
+        return 1
+    end
+
+    set -l cmd $__gif_last_failed_cmd
+    echo "whyfail: last exit was $__gif_last_failed_status" >&2
+    echo "whyfail: replaying with trace → $cmd" >&2
+    echo "────────────────────────────────────────" >&2
+
+    # Prefer fish's debug trace; also inject common verbose flags when safe
+    set -l verbose_cmd (__gif_add_verbose_flags $cmd)
+
+    fish --debug='*' -c "$verbose_cmd"
+    set -l code $status
+    echo "────────────────────────────────────────" >&2
+    echo "whyfail: exit $code" >&2
+    return $code
+end
+
+function __gif_add_verbose_flags --argument-names cmd
+    # Add -v / --verbose when the command family usually supports it
+    set -l first (string split -f1 ' ' -- $cmd)
+
+    switch $first
+        case curl wget rsync scp ssh npm yarn pnpm pip pip3 brew cargo go make cmake docker git
+            if not string match -qr '(^|\\s)-(v|vv|vvv|--verbose)(\\s|$)' -- $cmd
+                echo "$first -v "(string replace -r "^$first\\s*" "" -- $cmd)
+                return
+            end
+        case rm mv cp
+            if not string match -qr '(^|\\s)-v(\\s|$)' -- $cmd
+                echo "$first -v "(string replace -r "^$first\\s*" "" -- $cmd)
+                return
+            end
+    end
+    echo $cmd
+end

@@ -1,0 +1,37 @@
+function diffclean --description "Diff that ignores whitespace-only changes by default"
+    argparse 'w/whitespace' 'u/unified=' 'c/context=' 'help' -- $argv
+    or return 1
+
+    if set -q _flag_help
+        echo "Usage: diffclean [-w] [-u N] <a> <b>"
+        echo "  Diff that strips whitespace-only changes by default."
+        echo "  -w  include whitespace changes (disable ignore)"
+        return 0
+    end
+
+    if test (count $argv) -lt 2
+        echo "diffclean: need two paths" >&2
+        return 1
+    end
+
+    set -l a $argv[1]
+    set -l b $argv[2]
+    set -l args -u
+
+    if set -q _flag_unified
+        set args -U$_flag_unified
+    else if set -q _flag_context
+        set args -C$_flag_context
+    end
+
+    # Default: ignore all whitespace changes
+    if not set -q _flag_whitespace
+        set -a args -w -b -B
+    end
+
+    if test -d $a -a -d $b
+        set -a args -r
+    end
+
+    diff $args -- $a $b
+end

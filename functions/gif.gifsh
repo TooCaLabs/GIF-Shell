@@ -1,0 +1,173 @@
+function gif --description "GIF shell control: settings and meta"
+    if test (count $argv) -eq 0
+        __gif_usage
+        return 0
+    end
+
+    switch $argv[1]
+        case settings
+            __gif_settings_cmd $argv[2..-1]
+        case version --version -v
+            __gif_brand_version
+            echo "script format: $GIF_EXTENSION"
+        case help --help -h
+            __gif_usage
+        case '*'
+            echo "gif: unknown subcommand '$argv[1]'" >&2
+            __gif_usage >&2
+            return 1
+    end
+end
+
+function __gif_usage
+    __gif_brand_line
+    echo ""
+    echo "Usage:"
+    echo "  gif settings _X-\"key --value\"   change a setting (confirms Y/n)"
+    echo "  gif settings                     list current settings"
+    echo "  gif version"
+    echo ""
+    echo "Categories:"
+    echo "  _A  Appearance  (font, theme*, prompt*, cursor*)"
+    echo "  _U  Use/behavior (autosuggest*, history_limit*, confirm_destructive*)"
+    echo "  _K  Keybinds*   _P  Plugins*   _S  Sync*"
+    echo "  (* = planned)"
+    echo ""
+    echo "Examples:"
+    echo "  gif settings _A-\"font --jetbrains_mono\""
+    echo "  gif settings _A-\"font --com --somefontid\"   # community pack (future)"
+    echo "  gif settings _U-\"confirm_destructive --off\""
+    echo ""
+    echo "Script extension: $GIF_EXTENSION"
+    echo "Commands: peek treesum diffclean whyfail ports envdiff retry ctx safe explain fresh"
+end
+
+function __gif_settings_cmd
+    if test (count $argv) -eq 0
+        echo "── $GIF_NAME settings ───────────────────────"
+        set -l lines (__gif_settings_list)
+        if test (count $lines) -eq 0
+            echo "(no settings saved yet)"
+        else
+            for line in $lines
+                echo "  $line"
+            end
+        end
+        echo "────────────────────────────────────────"
+        return 0
+    end
+
+    set -l raw (string join ' ' -- $argv)
+
+    set -l m (string match -r '^_([A-Za-z])-?"?([^"]+)"?$' -- $raw)
+    if test (count $m) -eq 0
+        set -l cat_tok $argv[1]
+        set -l cm (string match -r '^_([A-Za-z])-?(.*)$' -- $cat_tok)
+        if test (count $cm) -eq 0
+            echo "gif settings: expected _X-\"key --value\"" >&2
+            return 1
+        end
+        set -l category $cm[2]
+        set -l body $cm[3]
+        if test (count $argv) -gt 1
+            set body (string trim -- "$body "(string join ' ' -- $argv[2..-1]))
+        end
+        __gif_settings_apply $category $body
+        return $status
+    end
+
+    set -l category $m[2]
+    set -l body (string trim -- $m[3])
+    set body (string trim -c '"' -- $body)
+    __gif_settings_apply $category $body
+end
+
+function __gif_settings_apply --argument-names category body
+    set category (string upper -- $category)
+
+    set -l parts (string split -n ' ' -- $body)
+    if test (count $parts) -eq 0
+        echo "gif settings: empty key" >&2
+        return 1
+    end
+
+    set -l key $parts[1]
+    set -l flags $parts[2..-1]
+
+    switch $category
+        case A
+            switch $key
+                case font
+                    __gif_settings_font $flags
+                case theme prompt cursor
+                    echo "gif settings: '$key' is planned for _A — not implemented yet" >&2
+                    return 1
+                case '*'
+                    echo "gif settings: unknown _A key '$key'" >&2
+                    return 1
+            end
+        case U
+            switch $key
+                case confirm_destructive autosuggest history_limit
+                    set -l val
+                    for f in $flags
+                        if string match -qr '^--' -- $f
+                            set val (string replace -r '^--' '' -- $f)
+                        else
+                            set val $f
+                        end
+                    end
+                    if test -z "$val"
+                        echo "gif settings: missing value for $key" >&2
+                        return 1
+                    end
+                    if not __gif_confirm "set _U $key to $val"
+                        echo "gif settings: aborted"
+                        return 1
+                    end
+                    __gif_settings_set U $key $val
+                    echo "gif settings: U.$key → $val"
+                case '*'
+                    echo "gif settings: unknown _U key '$key'" >&2
+                    return 1
+            end
+        case K P S
+            echo "gif settings: category _$category is reserved for later" >&2
+            return 1
+        case '*'
+            echo "gif settings: unknown category '_$category'" >&2
+            return 1
+    end
+end
+
+function __gif_settings_font
+    set -l pack curated
+    set -l id
+
+    set -l i 0
+    while test $i -lt (count $argv)
+        set i (math $i + 1)
+        set -l tok $argv[$i]
+        switch $tok
+            case --com --community
+                set pack community
+            case --curated
+                set pack curated
+            case '--*'
+                set id (string replace -r '^--' '' -- $tok)
+            case '*'
+                set id $tok
+        end
+    end
+
+    if test -z "$id"
+        echo "gif settings: font needs an id, e.g. --jetbrains_mono" >&2
+        echo "  available:" >&2
+        for fid in (__gif_font_ids)
+            echo "    --$fid" >&2
+        end
+        return 1
+    end
+
+    __gif_font_apply $pack $id
+end

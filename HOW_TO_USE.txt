@@ -1,0 +1,83 @@
+GIF — Goldknow's Integrated FISH
+================================
+GIF is its own shell, built on the fish engine.
+It does NOT install as a fish plugin. Your normal `fish` stays vanilla.
+
+Install
+-------
+  ./install.sh
+
+  - Copies the fish engine to ~/.config/gif/libexec/gif (process name: gif)
+  - Puts the launcher at ~/.local/bin/gif
+  - Isolated config at ~/.config/gif/xdg (stock ~/.config/fish untouched)
+
+  Verify:  gif -c 'fastfetch -s Shell'   → should say "Shell: gif"
+
+Start
+-----
+  gif
+
+Cursor / VS Code
+----------------
+  Set the integrated terminal shell path to:
+    ~/.local/bin/gif
+
+  (install.sh prints the absolute path)
+
+
+Everyday commands
+-----------------
+  peek <file>              Smart cat: head+tail for huge files
+  treesum [dir]            Tree with sizes and line counts
+  diffclean <a> <b>        Diff, ignoring whitespace by default
+  whyfail                  Rerun last failed command with verbose/trace
+  ports                    What's listening on which port
+  envdiff -- <cmd>         Show env changes caused by a command
+  retry <n> -- <cmd>       Retry with exponential backoff
+  ctx                      cwd + git + last exit + processes snapshot
+  safe <cmd>               Dry-run (especially rm / mv / installs)
+  explain <cmd>            Plain-English breakdown of flags
+  fresh                    Reset env to session baseline
+
+
+Settings
+--------
+  Syntax:
+    gif settings _X-"key --value"
+
+  X is a category letter:
+    _A  Appearance
+    _U  Use / behavior
+    _K  Keybinds (future)
+    _P  Plugins (future)
+    _S  Sync (future)
+
+  Examples:
+    gif settings _A-"font --jetbrains_mono"
+    gif settings _A-"font --arial"
+    gif settings _A-"font --sf_pro"
+    gif settings _U-"confirm_destructive --off"
+    gif settings                               # list saved settings
+
+  Behavior:
+    - Autocomplete shows as ⇥ … on the right while you type
+    - Right-arrow accepts the suggestion into the line
+    - Tab stays free for normal shell completion
+    - Enter uses that autocomplete choice, then asks if it's correct
+    - GIF asks "are you sure? Y/n" before applying a settings change
+
+
+Tips
+----
+  - Script format is .gifsh (not .gif)
+  - `fish` = stock fish; `gif` = GIF shell
+  - peek -n 40 big.log
+  - treesum -d 2 -a
+  - safe rm -rf ./build
+
+
+Uninstall
+---------
+  rm -f ~/.local/bin/gif
+  rm -rf ~/.config/gif ~/.local/share/gif
+  # fish itself is never modified

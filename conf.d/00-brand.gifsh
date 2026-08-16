@@ -1,0 +1,14 @@
+# GIF brand constants — single source of truth for user-facing strings.
+
+set -gx GIF_NAME GIF
+set -gx GIF_TAGLINE "Goldknow's Integrated FISH"
+set -gx GIF_VERSION 0.1.0
+set -gx GIF_EXTENSION .gifsh
+
+function __gif_brand_line
+    echo "$GIF_NAME — $GIF_TAGLINE"
+end
+
+function __gif_brand_version
+    echo "$GIF_NAME $GIF_VERSION — $GIF_TAGLINE"
+end

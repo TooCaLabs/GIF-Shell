@@ -1,0 +1,70 @@
+function fresh --description "Reset shell env to the session baseline without restarting"
+    argparse 'help' -- $argv
+    or return 1
+
+    if set -q _flag_help
+        echo "Usage: fresh"
+        echo "  Nuke current env back to the clean baseline from session start."
+        return 0
+    end
+
+    if not set -q __gif_baseline_env
+        echo "fresh: no baseline captured (GIF conf.d not loaded?)" >&2
+        return 1
+    end
+
+    if not __gif_confirm "reset env to session baseline"
+        echo "fresh: aborted"
+        return 1
+    end
+
+    # Clear user-exported vars that aren't in the baseline, then restore PATH
+    set -l baseline_keys
+    for line in $__gif_baseline_env
+        set -a baseline_keys (string split -m1 -f1 = -- $line)
+    end
+
+    for line in (env | sort)
+        set -l key (string split -m1 -f1 = -- $line)
+        # Skip critical / read-only shell vars
+        switch $key
+            case PWD HOME USER SHELL SHLVL TERM TMPDIR _
+                continue
+            case FISH_VERSION fish_pid hostname
+                continue
+            case __gif_baseline_env __gif_baseline_path __gif_baseline_fish_user_paths
+                continue
+            case __gif_last_status __gif_last_failed_cmd __gif_last_failed_status
+                continue
+            case GIF_ROOT GIF_CONFIG_DIR GIF_DATA_DIR
+                continue
+        end
+
+        if not contains -- $key $baseline_keys
+            set -e $key 2>/dev/null
+        end
+    end
+
+    # Restore PATH and fish_user_paths from baseline
+    if set -q __gif_baseline_path
+        set -gx PATH $__gif_baseline_path
+    end
+    if set -q __gif_baseline_fish_user_paths
+        set -g fish_user_paths $__gif_baseline_fish_user_paths
+    end
+
+    # Re-apply baseline values for keys that drifted
+    for line in $__gif_baseline_env
+        set -l key (string split -m1 -f1 = -- $line)
+        set -l val (string split -m1 -f2 = -- $line)
+        switch $key
+            case PWD _
+                continue
+            case PATH
+                continue
+        end
+        set -gx $key $val 2>/dev/null
+    end
+
+    echo "fresh: env restored to session baseline"
+end

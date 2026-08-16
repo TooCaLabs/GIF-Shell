@@ -1,0 +1,49 @@
+# GIF — Goldknow's Integrated FISH
+# Loads paths, baseline env for `fresh`, and session brand.
+# All GIF-owned sources use the .gifsh extension.
+
+set -g fish_autosuggestion_enabled 1
+if not set -q fish_color_autosuggestion
+    set -g fish_color_autosuggestion brblack
+end
+
+if not set -q GIF_ROOT
+    set -gx GIF_ROOT (dirname (dirname (status filename)))
+end
+if not set -q GIF_CONFIG_DIR
+    set -gx GIF_CONFIG_DIR "$HOME/.config/gif"
+end
+if not set -q GIF_DATA_DIR
+    set -gx GIF_DATA_DIR "$HOME/.local/share/gif"
+end
+
+mkdir -p "$GIF_CONFIG_DIR" "$GIF_DATA_DIR" 2>/dev/null
+
+# Brand env for tools like fastfetch / starship that read shell name
+set -gx GIF_SHELL 1
+set -gx SHELL_NAME GIF
+
+if not set -q __gif_baseline_env
+    set -g __gif_baseline_env
+    for line in (env | sort)
+        set -a __gif_baseline_env $line
+    end
+    set -g __gif_baseline_path $PATH
+    set -g __gif_baseline_fish_user_paths $fish_user_paths
+end
+
+function __gif_track_status --on-event fish_postexec
+    set -l code $status
+    set -g __gif_last_status $code
+    if test $code -ne 0
+        set -g __gif_last_failed_cmd $argv
+        set -g __gif_last_failed_status $code
+    end
+end
+
+# Load saved appearance after functions are available (re-run at end of gif-load)
+function __gif_boot_appearance
+    if functions -q __gif_font_load_saved
+        __gif_font_load_saved
+    end
+end

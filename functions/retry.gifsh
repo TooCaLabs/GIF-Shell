@@ -1,0 +1,63 @@
+function retry --description "Retry a command with exponential backoff"
+    set -l times 3
+    set -l delay 1
+    set -l max_delay 30
+
+    argparse 'n/times=' 'd/delay=' 'm/max-delay=' 'help' -- $argv
+    or return 1
+
+    if set -q _flag_help
+        echo "Usage: retry [-n N] [-d SECONDS] [-m MAX] -- <cmd> [args...]"
+        echo "  Retry with exponential backoff (default: 3 tries, 1s base)."
+        return 0
+    end
+
+    if set -q _flag_times
+        set times $_flag_times
+    end
+    if set -q _flag_delay
+        set delay $_flag_delay
+    end
+    if set -q _flag_max_delay
+        set max_delay $_flag_max_delay
+    end
+
+    # Support: retry 5 -- cmd   and   retry -n 5 -- cmd
+    if test (count $argv) -gt 0; and string match -qr '^[0-9]+$' -- $argv[1]
+        set times $argv[1]
+        set argv $argv[2..-1]
+    end
+
+    # Drop leading --
+    if test (count $argv) -gt 0; and test "$argv[1]" = "--"
+        set argv $argv[2..-1]
+    end
+
+    if test (count $argv) -eq 0
+        echo "retry: missing command" >&2
+        return 1
+    end
+
+    set -l attempt 0
+    set -l wait $delay
+    set -l code 1
+
+    while test $attempt -lt $times
+        set attempt (math $attempt + 1)
+        if test $attempt -gt 1
+            echo "retry: attempt $attempt/$times after {$wait}s…" >&2
+            sleep $wait
+            set wait (math "min($wait * 2, $max_delay)")
+        end
+
+        eval $argv
+        set code $status
+        if test $code -eq 0
+            return 0
+        end
+        echo "retry: exit $code" >&2
+    end
+
+    echo "retry: gave up after $times attempts" >&2
+    return $code
+end

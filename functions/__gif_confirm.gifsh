@@ -1,0 +1,22 @@
+function __gif_confirm --argument-names prompt
+    # Always confirm before applying changes (Notes.md). Default Y.
+    # Respect global confirm_destructive setting when present.
+    set -l cfg (__gif_settings_get U confirm_destructive)
+    if test "$cfg" = "off"
+        return 0
+    end
+
+    set -l msg "are you sure?"
+    if test -n "$prompt"
+        set msg "are you sure? ($prompt)"
+    end
+    echo -n "$msg Y/n "
+    set -l answer
+    read -P "" answer
+    or return 1
+    set answer (string lower -- (string trim -- $answer))
+    if test -z "$answer"; or test "$answer" = y; or test "$answer" = yes
+        return 0
+    end
+    return 1
+end

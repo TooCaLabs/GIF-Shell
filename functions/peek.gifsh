@@ -1,0 +1,60 @@
+function peek --description "Cat with smart head+tail truncation for large files"
+    set -l max_lines 80
+    set -l head_n 40
+    set -l tail_n 40
+    set -l files
+
+    argparse 'n/lines=' 'h/head=' 't/tail=' 'help' -- $argv
+    or return 1
+
+    if set -q _flag_help
+        echo "Usage: peek [-n LINES] [-h HEAD] [-t TAIL] <file>..."
+        echo "  Like cat, but auto-truncates huge files (head + tail)."
+        return 0
+    end
+
+    if set -q _flag_lines
+        set max_lines $_flag_lines
+        set head_n (math "floor($max_lines / 2)")
+        set tail_n (math "$max_lines - $head_n")
+    end
+    if set -q _flag_head
+        set head_n $_flag_head
+    end
+    if set -q _flag_tail
+        set tail_n $_flag_tail
+    end
+
+    set files $argv
+    if test (count $files) -eq 0
+        echo "peek: missing file" >&2
+        return 1
+    end
+
+    for f in $files
+        if not test -e $f
+            echo "peek: $f: No such file or directory" >&2
+            continue
+        end
+        if test -d $f
+            echo "peek: $f: Is a directory" >&2
+            continue
+        end
+
+        set -l total (wc -l < $f | string trim)
+        if test (count $files) -gt 1
+            echo "==> $f <=="
+        end
+
+        if test $total -le (math "$head_n + $tail_n")
+            cat $f
+        else
+            head -n $head_n $f
+            set -l omitted (math "$total - $head_n - $tail_n")
+            echo ""
+            echo "… [$omitted lines omitted — $total total] …"
+            echo ""
+            tail -n $tail_n $f
+        end
+    end
+end

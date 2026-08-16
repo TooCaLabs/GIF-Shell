@@ -1,0 +1,56 @@
+#!/bin/sh
+# GIF — Goldknow's Integrated FISH
+# Real shell entrypoint: sets GIF env, then exec's the GIF engine binary
+# (a fish build installed under a `gif` filename so process detection
+# sees GIF, not fish).
+set -eu
+
+VERSION=0.1.0
+
+if [ -z "${GIF_ROOT:-}" ]; then
+  HERE="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
+  if [ -d "$HERE/../functions" ] && [ -d "$HERE/../conf.d" ]; then
+    GIF_ROOT="$(CDPATH= cd -- "$HERE/.." && pwd)"
+  elif [ -d "$HOME/.config/gif/functions" ]; then
+    GIF_ROOT="$HOME/.config/gif"
+  else
+    echo "gif: GIF_ROOT not found (run ./install.sh first)" >&2
+    exit 1
+  fi
+fi
+export GIF_ROOT
+export GIF_CONFIG_DIR="${GIF_CONFIG_DIR:-$GIF_ROOT}"
+export GIF_DATA_DIR="${GIF_DATA_DIR:-$HOME/.local/share/gif}"
+export GIF_SHELL=1
+export SHELL_NAME=GIF
+export GIF_VERSION="$VERSION"
+
+# Isolated config — stock ~/.config/fish is never used
+export XDG_CONFIG_HOME="$GIF_ROOT/xdg"
+
+ENGINE="${GIF_ENGINE:-$GIF_ROOT/libexec/gif}"
+if [ ! -x "$ENGINE" ]; then
+  echo "gif: engine missing at $ENGINE (re-run ./install.sh)" >&2
+  exit 1
+fi
+
+# Version probes (fastfetch / --version) must not print fish's banner
+case "${1:-}" in
+  --version|-v)
+    echo "GIF $VERSION — Goldknow's Integrated FISH"
+    exit 0
+    ;;
+  --help|-h)
+    echo "GIF $VERSION — Goldknow's Integrated FISH"
+    echo "Usage: gif [fish-options]  |  gif settings …  |  gif version"
+    exit 0
+    ;;
+  settings|version|help)
+    CMD="gif $*"
+    exec "$ENGINE" -C "source '$GIF_ROOT/xdg/fish/config.fish'" -c "$CMD"
+    ;;
+esac
+
+# Become the GIF engine process (basename = gif for shell detection)
+export SHELL="$0"
+exec "$ENGINE" "$@"

@@ -1,0 +1,51 @@
+function __gif_settings_file
+    echo "$GIF_CONFIG_DIR/settings"
+end
+
+function __gif_settings_ensure
+    mkdir -p "$GIF_CONFIG_DIR"
+    set -l f (__gif_settings_file)
+    if not test -f $f
+        printf '# GIF settings\n# Goldknow\'s Integrated FISH\n# category.key=value\n' > $f
+    end
+end
+
+function __gif_settings_get --argument-names category key
+    __gif_settings_ensure
+    set -l f (__gif_settings_file)
+    set -l line (string match -r "^$category\\.$key=.*" -- (cat $f))
+    if test -n "$line"
+        string split -m1 -f2 = -- $line[1]
+    end
+end
+
+function __gif_settings_set --argument-names category key value
+    __gif_settings_ensure
+    set -l f (__gif_settings_file)
+    set -l tmp (mktemp -t gif-settings)
+    set -l found 0
+    if test -f $f
+        while read -l line
+            if string match -qr "^$category\\.$key=" -- $line
+                echo "$category.$key=$value"
+                set found 1
+            else
+                echo $line
+            end
+        end < $f > $tmp
+    end
+    if test $found -eq 0
+        echo "$category.$key=$value" >> $tmp
+    end
+    mv $tmp $f
+end
+
+function __gif_settings_list --argument-names category
+    __gif_settings_ensure
+    set -l f (__gif_settings_file)
+    if test -n "$category"
+        string match -r "^$category\\.[^=]+=.*" -- (cat $f)
+    else
+        string match -r '^[A-Z]\\.[^=]+=.*' -- (cat $f)
+    end
+end

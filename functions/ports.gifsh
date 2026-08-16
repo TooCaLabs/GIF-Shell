@@ -1,0 +1,60 @@
+function ports --description "Show what is listening on which ports"
+    argparse 't/tcp' 'u/udp' 'p/pid=' 'help' -- $argv
+    or return 1
+
+    if set -q _flag_help
+        echo "Usage: ports [-t] [-u] [-p PID]"
+        echo "  What's listening on what port right now."
+        return 0
+    end
+
+    set -l proto both
+    if set -q _flag_tcp; and not set -q _flag_udp
+        set proto tcp
+    else if set -q _flag_udp; and not set -q _flag_tcp
+        set proto udp
+    end
+
+    if command -q lsof
+        set -l args -nP -iTCP -sTCP:LISTEN
+        if test "$proto" = udp
+            set args -nP -iUDP
+        else if test "$proto" = both
+            set args -nP -iTCP -sTCP:LISTEN -iUDP
+        end
+        if set -q _flag_pid
+            set -a args -p $_flag_pid
+        end
+
+        echo (printf "%-8s %-8s %-22s %-18s %s" "PROTO" "PID" "USER" "COMMAND" "ADDRESS")
+        echo (string repeat -n 72 "─")
+
+        # Parse lsof -i output into a clean table
+        lsof $args 2>/dev/null | awk 'NR>1 {
+            proto=$5
+            name=$9
+            # Prefer IPv4/IPv6 listen addresses from NAME column
+            printf "%-8s %-8s %-22s %-18s %s\n", proto, $2, $3, $1, name
+        }' | sort -u
+        return 0
+    end
+
+    if command -q ss
+        if test "$proto" = udp
+            ss -ulnp
+        else if test "$proto" = tcp
+            ss -tlnp
+        else
+            ss -tulnp
+        end
+        return 0
+    end
+
+    if command -q netstat
+        netstat -anv | string match -r 'LISTEN|\\*\\.'
+        return 0
+    end
+
+    echo "ports: need lsof, ss, or netstat" >&2
+    return 1
+end

@@ -1,0 +1,98 @@
+function safe --description "Dry-run mode for potentially destructive commands"
+    if test (count $argv) -gt 0; and contains -- $argv[1] --help -h
+        echo "Usage: safe <cmd> [args...]"
+        echo "  Show what a command would do without executing."
+        return 0
+    end
+
+    if test (count $argv) -eq 0
+        echo "safe: missing command" >&2
+        return 1
+    end
+
+    if test "$argv[1]" = "--"
+        set argv $argv[2..-1]
+    end
+
+    set -l cmd $argv[1]
+    set -l rest
+    if test (count $argv) -gt 1
+        set rest $argv[2..-1]
+    end
+
+    echo "── safe (dry-run) ───────────────────────"
+    echo "command: $argv"
+    echo ""
+
+    switch $cmd
+        case rm
+            echo "would remove:"
+            for t in $rest
+                if string match -q -- '-*' $t
+                    echo "  flag: $t"
+                    continue
+                end
+                if test -e $t
+                    if test -d $t
+                        set -l n (find $t 2>/dev/null | wc -l | string trim)
+                        echo "  DIR  $t  ($n entries)"
+                    else
+                        set -l sz (stat -f%z $t 2>/dev/null; or stat -c%s $t 2>/dev/null)
+                        echo "  FILE $t  ($sz bytes)"
+                    end
+                else
+                    echo "  MISS $t  (does not exist)"
+                end
+            end
+
+        case mv
+            if test (count $rest) -ge 2
+                set -l dest $rest[-1]
+                set -l srcs $rest[1..-2]
+                echo "would move:"
+                for s in $srcs
+                    if string match -q -- '-*' $s
+                        echo "  flag: $s"
+                    else
+                        echo "  $s  →  $dest"
+                    end
+                end
+            else
+                echo "mv: need source and destination"
+            end
+
+        case cp
+            if test (count $rest) -ge 2
+                set -l dest $rest[-1]
+                set -l srcs $rest[1..-2]
+                echo "would copy:"
+                for s in $srcs
+                    if string match -q -- '-*' $s
+                        echo "  flag: $s"
+                    else
+                        echo "  $s  →  $dest"
+                    end
+                end
+            else
+                echo "cp: need source and destination"
+            end
+
+        case brew npm yarn pnpm pip pip3 cargo
+            echo "would run package/install command:"
+            echo "  $argv"
+            echo ""
+            echo "hint: review args carefully; nothing will be installed."
+
+        case '*'
+            echo "generic dry-run — command will NOT be executed:"
+            echo "  $argv"
+            # If it's a known binary, show which path would run
+            if command -q $cmd
+                echo "  resolves to: "(command -s $cmd)
+            end
+    end
+
+    echo "────────────────────────────────────────"
+    echo "safe: no changes made"
+    return 0
+end

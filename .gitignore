@@ -1,0 +1,23 @@
+# Design notes — local only
+Notes.md
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Local test / install scratch
+.test-config/
+.test-data/
+*.log
+
+# Env / secrets
+.env
+.env.*

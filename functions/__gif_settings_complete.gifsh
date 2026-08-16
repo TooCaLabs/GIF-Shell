@@ -1,0 +1,416 @@
+# GIF autocomplete
+# Visible suggestion in the right prompt (⇥ …).
+# Right-arrow accepts it into the line.
+# Enter uses that choice, confirms, then runs.
+# NEVER replace `self-insert` — that bricks typing.
+
+set -g __gif_commands peek treesum diffclean whyfail ports envdiff retry ctx safe explain fresh gif
+set -g __gif_active_suggest ""
+
+function __gif_settings_keys --argument-names category
+    switch $category
+        case A
+            printf '%s\n' font theme prompt cursor
+        case U
+            printf '%s\n' autosuggest history_limit confirm_destructive
+        case K P S
+            true
+    end
+end
+
+function __gif_settings_values --argument-names category key
+    switch "$category:$key"
+        case 'A:font'
+            __gif_font_ids
+        case 'A:theme'
+            printf '%s\n' catppuccin_mocha
+        case 'U:confirm_destructive'
+            printf '%s\n' on off
+        case 'U:autosuggest'
+            printf '%s\n' on off history history+completions
+        case '*'
+            true
+    end
+end
+
+function __gif_first_prefix_match --argument-names prefix
+    if test (count $argv) -lt 2
+        return
+    end
+    for c in $argv[2..-1]
+        if test -z "$prefix"; or string match -q -- "$prefix*" $c
+            echo $c
+            return
+        end
+    end
+end
+
+function __gif_settings_expand_line --argument-names line
+    set -l m (string match -r '^(\s*gif\s+settings\s+)(_[A-Za-z])-?(.*)$' -- $line)
+    if test (count $m) -eq 0
+        return
+    end
+
+    set -l prefix $m[2]
+    set -l cat_tok $m[3]
+    set -l rest $m[4]
+    set -l category (string upper -- (string sub -s 2 -- $cat_tok))
+
+    set rest (string replace -r '^-' '' -- $rest)
+    set -l q_open '"'
+    set -l q_close '"'
+    if string match -qr '^"' -- $rest
+        set rest (string replace -r '^"' '' -- $rest)
+        if string match -qr '"$' -- $rest
+            set rest (string replace -r '"$' '' -- $rest)
+        end
+    end
+
+    set rest (string trim -- $rest)
+    set -l parts (string split -n ' ' -- $rest)
+    set -l body
+
+    if test (count $parts) -eq 0
+        set -l k (__gif_first_prefix_match "" (__gif_settings_keys $category))
+        test -n "$k"; or return
+        set -l v (__gif_first_prefix_match "" (__gif_settings_values $category $k))
+        if test -n "$v"
+            set body "$k --$v"
+        else
+            set body $k
+        end
+    else if test (count $parts) -eq 1
+        set -l k (__gif_first_prefix_match $parts[1] (__gif_settings_keys $category))
+        test -n "$k"; or return
+        set -l v (__gif_first_prefix_match "" (__gif_settings_values $category $k))
+        if test -n "$v"
+            set body "$k --$v"
+        else
+            set body $k
+        end
+    else
+        set -l k (__gif_first_prefix_match $parts[1] (__gif_settings_keys $category))
+        test -n "$k"; or return
+        set -l val_prefix (string replace -r '^--' '' -- $parts[-1])
+        set -l v (__gif_first_prefix_match $val_prefix (__gif_settings_values $category $k))
+        test -n "$v"; or return
+        set body "$k --$v"
+    end
+
+    set -l suggested (string join '' -- $prefix '_' $category '-' $q_open $body $q_close)
+    if test "$suggested" = "$line"
+        return
+    end
+    echo $suggested
+end
+
+function __gif_command_expand --argument-names buf
+    set -l trimmed (string trim -l -- $buf)
+    if test -z "$trimmed"
+        return
+    end
+
+    set -l parts (string split -n ' ' -- $trimmed)
+    set -l head $parts[1]
+
+    if contains -- $head $__gif_commands
+        if test (count $parts) -eq 1
+            set -l h (history search --prefix --max 1 --case-sensitive -- $head 2>/dev/null)
+            if test (count $h) -gt 0; and test "$h[1]" != "$buf"
+                echo $h[1]
+            end
+            return
+        end
+
+        set -l comps (complete -C -- $trimmed 2>/dev/null)
+        if test (count $comps) -eq 0
+            return
+        end
+        set -l first (string split -f1 \t -- $comps[1])
+        set -l lead (string join ' ' -- $parts[1..-2])
+        if test -n "$lead"
+            echo "$lead $first"
+        else
+            echo "$head $first"
+        end
+        return
+    end
+
+    set -l match (__gif_first_prefix_match $head $__gif_commands)
+    if test -n "$match"; and test "$match" != "$head"
+        if test (count $parts) -gt 1
+            echo $match (string join ' ' -- $parts[2..-1])
+        else
+            set -l h (history search --prefix --max 1 --case-sensitive -- $match 2>/dev/null)
+            if test (count $h) -gt 0
+                echo $h[1]
+            else
+                echo $match
+            end
+        end
+    end
+end
+
+function __gif_compute_suggestion --argument-names buf
+    set buf (string trim -r -- $buf)
+    if test -z "$buf"
+        return
+    end
+
+    if string match -qr '^\s*gif\s+settings\b' -- $buf
+        set -l s (__gif_settings_expand_line $buf)
+        if test -n "$s"
+            echo $s
+            return
+        end
+    end
+
+    set -l s (__gif_command_expand $buf)
+    if test -n "$s"; and test "$s" != "$buf"
+        echo $s
+        return
+    end
+
+    set -l h (history search --prefix --max 1 --case-sensitive -- $buf 2>/dev/null)
+    if test (count $h) -gt 0; and test "$h[1]" != "$buf"
+        echo $h[1]
+        return
+    end
+
+    set -l comps (complete -C -- $buf 2>/dev/null)
+    if test (count $comps) -eq 0
+        return
+    end
+    set -l first (string split -f1 \t -- $comps[1])
+    set -l parts (string split -n ' ' -- $buf)
+    if string match -qr ' $' -- $buf
+        echo (string trim -r -- $buf)" $first"
+    else if test (count $parts) -le 1
+        if test "$first" != "$buf"
+            echo $first
+        end
+    else
+        set -l lead (string join ' ' -- $parts[1..-2])
+        echo "$lead $first"
+    end
+end
+
+function __gif_suggest_valid --argument-names buf sug
+    # Suggestion may only extend what you typed — never replace with something else.
+    if test -z "$buf"; or test -z "$sug"
+        return 1
+    end
+    if test "$sug" = "$buf"
+        return 1
+    end
+    if not string match -q -- "$buf*" $sug
+        return 1
+    end
+    return 0
+end
+
+function __gif_valid_suggestion --argument-names buf
+    set -l sug $__gif_active_suggest
+    if __gif_suggest_valid $buf $sug
+        echo $sug
+        return
+    end
+    set sug (__gif_compute_suggestion $buf)
+    if __gif_suggest_valid $buf $sug
+        echo $sug
+    end
+end
+
+function __gif_refresh_suggest
+    set -l buf (commandline -b)
+    set -g __gif_active_suggest ""
+    set -l sug (__gif_compute_suggestion $buf)
+    if __gif_suggest_valid $buf $sug
+        set -g __gif_active_suggest $sug
+    end
+    commandline -f repaint
+end
+
+function __gif_accept_suggest_or_forward
+    set -l buf (commandline -b)
+    set -l sug (__gif_valid_suggestion $buf)
+    if test -n "$sug"
+        commandline -r -- $sug
+        commandline -C (string length -- $sug)
+        set -g __gif_active_suggest ""
+        commandline -f repaint
+        return
+    end
+    if commandline --showing-suggestion
+        commandline -f accept-autosuggestion
+        return
+    end
+    commandline -f forward-char
+end
+
+function __gif_execute_with_autocomplete
+    # While asking Y/n, don't treat the answer as a new command / suggestion.
+    if set -q __gif_confirming; and test "$__gif_confirming" = 1
+        commandline -f execute
+        return
+    end
+
+    set -l before (commandline -b)
+    set -l trimmed (string trim -- "$before")
+    if test -z "$trimmed"
+        commandline -f execute
+        return
+    end
+
+    # Multi-line paste / buffer: never autocomplete — just run as-is (or first line only via execute).
+    if test (count (string split \n -- "$before")) -gt 1
+        set -g __gif_active_suggest ""
+        commandline -f execute
+        return
+    end
+
+    # Only autocomplete when the suggestion is a real extension of what you typed.
+    # Paste / stale ⇥ must never swap in an unrelated history line.
+    set -l sug (__gif_valid_suggestion $before)
+    if test -z "$sug"
+        set -g __gif_active_suggest ""
+        commandline -f execute
+        return
+    end
+
+    set -g __gif_confirming 1
+    set -g __gif_active_suggest ""
+    # Clear the line so the Y/n answer cannot become the next commandline.
+    commandline -r -- ""
+    commandline -f repaint
+
+    echo
+    echo "autocomplete chose:"
+    echo "  $sug"
+    echo "  (you typed: $before)"
+    echo -n "is this correct? Y/n "
+
+    set -l answer
+    set -l read_ok 0
+    if read -P "" answer
+        set read_ok 1
+    end
+    set -g __gif_confirming 0
+
+    if test $read_ok -eq 0
+        commandline -r -- $before
+        __gif_refresh_suggest
+        return
+    end
+
+    set answer (string lower -- (string trim -- $answer))
+    if test -z "$answer"; or test "$answer" = y; or test "$answer" = yes
+        commandline -r -- $sug
+        commandline -f execute
+    else
+        echo "cancelled — restored your typed input"
+        commandline -r -- $before
+        __gif_refresh_suggest
+    end
+end
+
+function __gif_draw_suggest_prompt
+    set -l buf (commandline -b 2>/dev/null)
+    or return
+    set -l sug (__gif_valid_suggestion $buf)
+    if test -z "$sug"
+        return
+    end
+    set_color $fish_color_autosuggestion 2>/dev/null
+    or set_color brblack
+    echo -n "⇥ "(string sub -s (math (string length -- $buf) + 1) -- $sug)
+    set_color normal
+end
+
+function __gif_install_autocomplete_bindings
+    if functions -q fish_right_prompt; and not functions -q __gif_user_right_prompt
+        if not string match -q '*__gif_draw_suggest_prompt*' -- (functions fish_right_prompt)
+            functions -c fish_right_prompt __gif_user_right_prompt
+        end
+    end
+
+    function fish_right_prompt
+        __gif_draw_suggest_prompt
+        if functions -q __gif_user_right_prompt
+            __gif_user_right_prompt
+        end
+    end
+
+    set -g fish_autosuggestion_enabled 1
+
+    # CRITICAL: keep self-insert as the generic binding so typing works.
+    # Refresh runs as a fish command AFTER the character is inserted.
+    bind '' self-insert '__gif_refresh_suggest'
+    bind -M insert '' self-insert '__gif_refresh_suggest' 2>/dev/null
+
+    bind backspace backward-delete-char '__gif_refresh_suggest'
+    bind \x7f backward-delete-char '__gif_refresh_suggest'
+    bind -M insert backspace backward-delete-char '__gif_refresh_suggest' 2>/dev/null
+    bind delete delete-char '__gif_refresh_suggest'
+    bind -M insert delete delete-char '__gif_refresh_suggest' 2>/dev/null
+
+    bind right __gif_accept_suggest_or_forward
+    bind \e\[C __gif_accept_suggest_or_forward
+    bind -M insert right __gif_accept_suggest_or_forward 2>/dev/null
+    bind -M insert \e\[C __gif_accept_suggest_or_forward 2>/dev/null
+
+    bind enter __gif_execute_with_autocomplete
+    bind ctrl-j __gif_execute_with_autocomplete
+    bind -M insert enter __gif_execute_with_autocomplete 2>/dev/null
+end
+
+function __gif_complete_gif
+    set -l tokens (commandline -opc)
+    set -l current (commandline -ct)
+    set -l n (count $tokens)
+
+    if test $n -eq 1
+        for s in settings version help
+            if test -z "$current"; or string match -q -- "$current*" $s
+                echo $s
+            end
+        end
+        return
+    end
+
+    if test $n -ge 2; and test $tokens[2] = settings
+        set -l line (commandline -b)
+        set -l expanded (__gif_settings_expand_line $line)
+        if test -n "$expanded"
+            set -l m (string match -r 'gif\s+settings\s+(_[A-Za-z]-?.*)$' -- $expanded)
+            if test (count $m) -gt 0
+                echo $m[2]
+            end
+        end
+        if test $n -eq 2
+            for c in _A- _U- _K- _P- _S-
+                if test -z "$current"; or string match -q -- "$current*" $c
+                    echo $c
+                end
+            end
+        end
+    end
+end
+
+complete -c gif -e 2>/dev/null
+complete -c gif -f -a '(__gif_complete_gif)'
+
+for __gif_cmd in peek treesum diffclean envdiff safe explain
+    complete -c $__gif_cmd -e 2>/dev/null
+    complete -c $__gif_cmd -F
+end
+complete -c retry -e 2>/dev/null
+complete -c retry -s n -l times -d 'attempts'
+complete -c retry -s d -l delay -d 'base delay seconds'
+complete -c whyfail -f
+complete -c ports -f -s t -l tcp -d 'TCP only'
+complete -c ports -f -s u -l udp -d 'UDP only'
+complete -c ctx -f
+complete -c fresh -f
+
+__gif_install_autocomplete_bindings

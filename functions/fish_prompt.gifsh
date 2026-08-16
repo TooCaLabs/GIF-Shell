@@ -1,0 +1,34 @@
+function fish_prompt
+    set -l last $status
+    set -l cwd (prompt_pwd)
+    set -l git_bit
+
+    if command -q git; and git rev-parse --is-inside-work-tree >/dev/null 2>&1
+        set -l branch (git branch --show-current 2>/dev/null)
+        or set branch (git rev-parse --short HEAD 2>/dev/null)
+        if test -n "$branch"
+            set git_bit " · $branch"
+        end
+    end
+
+    # Brand first: GIF is the hero signal on every line
+    set_color --bold 2f6fed
+    echo -n $GIF_NAME
+    set_color normal
+    set_color brblack
+    echo -n " "
+    set_color normal
+    set_color cyan
+    echo -n $cwd
+    set_color brblack
+    echo -n $git_bit
+    set_color normal
+
+    if test $last -ne 0
+        set_color red
+        echo -n " [$last]"
+        set_color normal
+    end
+
+    echo -n ' › '
+end

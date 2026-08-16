@@ -1,0 +1,4 @@
+#!/usr/bin/env fish
+# Thin wrapper — prefer install.sh (standalone shell installer).
+set -l root (dirname (dirname (status filename)))
+exec sh $root/install.sh

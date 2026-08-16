@@ -1,0 +1,198 @@
+function explain --description "Plain-English breakdown of a command and its flags"
+    # Manual flag parse so the target command's flags (e.g. ls -la) are not eaten.
+    set -l do_run 0
+    while test (count $argv) -gt 0
+        switch $argv[1]
+            case --help -h
+                echo "Usage: explain [--run] <cmd> [args...]"
+                echo "  Print a plain-English breakdown of every flag."
+                echo "  --run  execute after explaining (asks Y/n first)"
+                return 0
+            case --run
+                set do_run 1
+                set argv $argv[2..-1]
+            case --
+                set argv $argv[2..-1]
+                break
+            case '*'
+                break
+        end
+    end
+
+    if test (count $argv) -eq 0
+        echo "explain: missing command" >&2
+        return 1
+    end
+
+    set -l cmd $argv[1]
+    set -l rest
+    if test (count $argv) -gt 1
+        set rest $argv[2..-1]
+    end
+
+    echo "── explain ──────────────────────────────"
+    echo "command: $cmd"
+    if command -q $cmd
+        echo "binary:  "(command -s $cmd)
+    else
+        echo "binary:  (shell function / builtin / not found on PATH)"
+    end
+    echo ""
+
+    if test (count $rest) -eq 0
+        echo "no flags or arguments"
+    else
+        echo "breakdown:"
+        set -l i 0
+        while test $i -lt (count $rest)
+            set i (math $i + 1)
+            set -l tok $rest[$i]
+
+            if string match -qr '^--[a-zA-Z0-9][-a-zA-Z0-9]*=' -- $tok
+                set -l parts (string split -m1 = -- $tok)
+                echo "  $parts[1] = $parts[2]"
+                echo "    → long option with inline value"
+            else if string match -qr '^--[a-zA-Z0-9]' -- $tok
+                echo "  $tok"
+                set -l desc (__gif_explain_flag $cmd $tok)
+                echo "    → $desc"
+                # peek next as value if it doesn't look like a flag
+                if test $i -lt (count $rest)
+                    set -l nxt $rest[(math $i + 1)]
+                    if not string match -q -- '-*' $nxt
+                        echo "    value: $nxt"
+                        set i (math $i + 1)
+                    end
+                end
+            else if string match -qr '^-[a-zA-Z0-9]' -- $tok
+                # Clustered short flags: -rf → -r -f
+                set -l body (string sub -s 2 -- $tok)
+                if string match -qr '^[a-zA-Z0-9]+$' -- $body; and test (string length $body) -gt 1
+                    echo "  $tok  (clustered short flags)"
+                    for c in (string split '' -- $body)
+                        set -l desc (__gif_explain_flag $cmd "-$c")
+                        echo "    -$c → $desc"
+                    end
+                else
+                    echo "  $tok"
+                    set -l desc (__gif_explain_flag $cmd $tok)
+                    echo "    → $desc"
+                    if test $i -lt (count $rest)
+                        set -l nxt $rest[(math $i + 1)]
+                        if not string match -q -- '-*' $nxt
+                            echo "    value: $nxt"
+                            set i (math $i + 1)
+                        end
+                    end
+                end
+            else
+                echo "  arg: $tok"
+                if test -e $tok
+                    if test -d $tok
+                        echo "    → existing directory"
+                    else
+                        echo "    → existing file"
+                    end
+                else
+                    echo "    → path/string argument"
+                end
+            end
+        end
+    end
+
+    # Prefer man/help synopsis when available
+    if command -q $cmd
+        set -l syn (man $cmd 2>/dev/null | col -bx | awk '/^(NAME|SYNOPSIS)/{p=1} p{print; if(++n>=6) exit}')
+        if test -n "$syn"
+            echo ""
+            echo "man snippet:"
+            for line in $syn
+                echo "  $line"
+            end
+        end
+    end
+
+    echo "────────────────────────────────────────"
+
+    if test $do_run -eq 1
+        if not __gif_confirm "run this command now"
+            echo "explain: aborted"
+            return 1
+        end
+        eval $argv
+        return $status
+    end
+    return 0
+end
+
+function __gif_explain_flag --argument-names cmd flag
+    # Common knowledge base; fall back to generic wording
+    switch "$cmd:$flag"
+        case 'rm:-r' 'rm:-R' 'rm:--recursive'
+            echo "delete directories recursively"
+        case 'rm:-f' 'rm:--force'
+            echo "force — ignore missing files, no prompts"
+        case 'rm:-i'
+            echo "prompt before every removal"
+        case 'rm:-v' 'rm:--verbose'
+            echo "print each file as it is removed"
+        case 'mv:-f' 'mv:--force'
+            echo "overwrite without prompting"
+        case 'mv:-n' 'mv:--no-clobber'
+            echo "do not overwrite existing files"
+        case 'mv:-v' 'mv:--verbose'
+            echo "print each move"
+        case 'cp:-r' 'cp:-R' 'cp:--recursive'
+            echo "copy directories recursively"
+        case 'cp:-a' 'cp:--archive'
+            echo "archive mode (preserve attrs, recursive)"
+        case 'cp:-v' 'cp:--verbose'
+            echo "print each copy"
+        case 'curl:-v' 'curl:--verbose'
+            echo "verbose protocol output"
+        case 'curl:-L' 'curl:--location'
+            echo "follow HTTP redirects"
+        case 'curl:-O' 'curl:--remote-name'
+            echo "save output using remote file name"
+        case 'curl:-o' 'curl:--output'
+            echo "write output to the following file"
+        case 'git:-a' 'git:--all'
+            echo "all (context depends on subcommand)"
+        case 'ls:-l'
+            echo "long listing format"
+        case 'ls:-a' 'ls:--all'
+            echo "include hidden entries"
+        case 'ls:-h' 'ls:--human-readable'
+            echo "human-readable sizes"
+        case 'chmod:-R' 'chmod:--recursive'
+            echo "apply mode changes recursively"
+        case 'chown:-R' 'chown:--recursive'
+            echo "change ownership recursively"
+        case 'find:-name'
+            echo "match basename against pattern"
+        case 'find:-type'
+            echo "restrict to entry type (f/d/l/…)"
+        case 'grep:-r' 'grep:-R' 'grep:--recursive'
+            echo "search directories recursively"
+        case 'grep:-i' 'grep:--ignore-case'
+            echo "case-insensitive match"
+        case 'grep:-n' 'grep:--line-number'
+            echo "print line numbers"
+        case 'tar:-x'
+            echo "extract"
+        case 'tar:-c'
+            echo "create archive"
+        case 'tar:-z'
+            echo "gzip compression"
+        case 'tar:-f'
+            echo "use following archive file"
+        case 'tar:-v'
+            echo "verbose listing"
+        case '*'
+            if string match -qr '^--' -- $flag
+                echo "long option "(string replace -r '^--' '' -- $flag)" (see man $cmd)"
+            else
+                echo "short option (see man $cmd)"
+            end
+    end
+end

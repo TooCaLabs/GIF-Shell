@@ -1,0 +1,52 @@
+function ctx --description "Snapshot cwd, git, last exit, and running processes"
+    argparse 'help' -- $argv
+    or return 1
+
+    if set -q _flag_help
+        echo "Usage: ctx"
+        echo "  Dump cwd + git status + last exit + running procs."
+        return 0
+    end
+
+    echo "── ctx ──────────────────────────────────"
+    echo "cwd:  "(pwd)
+    echo "host: "(hostname)" / "(whoami)
+    echo "shell: $GIF_NAME $GIF_VERSION  pid "(echo %self)
+    if set -q GIF_FONT_NAME
+        echo "font:  $GIF_FONT_NAME ($GIF_FONT)"
+    end
+    if set -q __gif_last_status
+        echo "last: exit $__gif_last_status"
+    else
+        echo "last: (none yet)"
+    end
+    if set -q __gif_last_failed_cmd; and test -n "$__gif_last_failed_cmd"
+        echo "fail: $__gif_last_failed_cmd  (exit $__gif_last_failed_status)"
+    end
+
+    echo ""
+    echo "git:"
+    if command -q git; and git rev-parse --is-inside-work-tree >/dev/null 2>&1
+        set -l branch (git branch --show-current 2>/dev/null)
+        or set branch (git rev-parse --short HEAD 2>/dev/null)
+        set -l upstream (git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null)
+        echo "  branch: $branch"
+        if test -n "$upstream"
+            echo "  track:  $upstream"
+        end
+        git status -sb | while read -l line
+            echo "  $line"
+        end
+    else
+        echo "  (not a git repo)"
+    end
+
+    echo ""
+    echo "procs (user, top CPU):"
+    if command -q ps
+        ps -o pid,%cpu,%mem,command -u (whoami) | head -n 12 | while read -l line
+            echo "  $line"
+        end
+    end
+    echo "────────────────────────────────────────"
+end

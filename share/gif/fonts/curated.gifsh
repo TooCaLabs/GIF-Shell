@@ -1,0 +1,34 @@
+# Curated built-in font library (custom IDs, not system font names).
+# Format: id|display name|notes
+
+# --- Monospace (coding / terminal) ---
+jetbrains_mono|JetBrains Mono|Curated pack — coding default (monospace)
+fira_code|Fira Code|Curated pack — ligatures (monospace)
+iosevka|Iosevka|Curated pack — narrow, highly configurable (monospace)
+cascadia_code|Cascadia Code|Curated pack — Windows Terminal heritage (monospace)
+source_code_pro|Source Code Pro|Curated pack — Adobe (monospace)
+hack|Hack|Curated pack — Bitstream Vera derivative (monospace)
+ibm_plex_mono|IBM Plex Mono|Curated pack (monospace)
+inconsolata|Inconsolata|Curated pack (monospace)
+victor_mono|Victor Mono|Curated pack — cursive italics (monospace)
+commit_mono|Commit Mono|Curated pack (monospace)
+
+# --- Proportional / UI ---
+arial|Arial|Curated pack — classic sans (proportional)
+sf_pro|SF Pro|Curated pack — Apple system UI (proportional)
+sf_pro_display|SF Pro Display|Curated pack — Apple display sizes (proportional)
+sf_pro_text|SF Pro Text|Curated pack — Apple text sizes (proportional)
+helvetica|Helvetica|Curated pack — classic neo-grotesque (proportional)
+helvetica_neue|Helvetica Neue|Curated pack (proportional)
+inter|Inter|Curated pack — UI sans (proportional)
+roboto|Roboto|Curated pack — Google UI sans (proportional)
+open_sans|Open Sans|Curated pack (proportional)
+lato|Lato|Curated pack (proportional)
+nunito|Nunito|Curated pack — rounded sans (proportional)
+poppins|Poppins|Curated pack — geometric sans (proportional)
+system_ui|System UI|Curated pack — platform default UI font (proportional)
+segoe_ui|Segoe UI|Curated pack — Windows UI (proportional)
+georgia|Georgia|Curated pack — serif (proportional)
+times_new_roman|Times New Roman|Curated pack — classic serif (proportional)
+palatino|Palatino|Curated pack — old-style serif (proportional)
+new_york|New York|Curated pack — Apple serif (proportional)

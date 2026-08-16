@@ -1,0 +1,11 @@
+function fish_greeting
+    set_color --bold 2f6fed
+    echo -n $GIF_NAME
+    set_color normal
+    echo -n " — "
+    set_color brblack
+    echo $GIF_TAGLINE
+    set_color normal
+    echo "  commands: peek · treesum · ctx · safe · gif settings"
+    echo
+end

@@ -1,0 +1,98 @@
+function __gif_font_ids
+    set -l root $GIF_ROOT
+    if test -z "$root"
+        set root (dirname (dirname (status filename)))
+    end
+    set -l pack "$root/share/gif/fonts/curated.gifsh"
+    if not test -f $pack
+        return
+    end
+    for line in (cat $pack)
+        if string match -qr '^\s*#' -- $line; or test -z (string trim -- $line)
+            continue
+        end
+        string split -m1 -f1 '|' -- $line
+    end
+end
+
+function __gif_font_info --argument-names id
+    set -l root $GIF_ROOT
+    if test -z "$root"
+        set root (dirname (dirname (status filename)))
+    end
+    set -l pack "$root/share/gif/fonts/curated.gifsh"
+    for line in (cat $pack)
+        set -l fid (string split -m1 -f1 '|' -- $line)
+        if test "$fid" = "$id"
+            echo $line
+            return 0
+        end
+    end
+    return 1
+end
+
+function __gif_font_display_name --argument-names id
+    set -l info (__gif_font_info $id)
+    if test -z "$info"
+        echo $id
+        return
+    end
+    string split -f2 '|' -- $info
+end
+
+function __gif_font_apply --argument-names pack id
+    if test "$pack" = community; or test "$pack" = com
+        echo "gif settings: community font pack is not hosted yet" >&2
+        echo "  (planned: coffee-donation funded hosting — contributions stay free)" >&2
+        return 1
+    end
+
+    set -l info (__gif_font_info $id)
+    if test -z "$info"
+        echo "gif settings: unknown font id '$id'" >&2
+        echo "  try: gif settings _A-\"font --\" then right-arrow to autocomplete" >&2
+        return 1
+    end
+
+    set -l name (string split -f2 '|' -- $info)
+    set -l notes (string split -f3 '|' -- $info)
+
+    if not __gif_confirm "set $GIF_NAME appearance font to $id ($name)"
+        echo "gif settings: aborted"
+        return 1
+    end
+
+    __gif_settings_set A font $id
+    __gif_settings_set A font_pack curated
+    set -gx GIF_FONT $id
+    set -gx GIF_FONT_NAME $name
+
+    __gif_font_try_apply_terminal $name
+
+    echo "$GIF_NAME settings: font → $id ($name)"
+    echo "  $notes"
+    echo "  saved in "(__gif_settings_file)
+end
+
+function __gif_font_try_apply_terminal --argument-names name
+    # Best-effort: Terminal.app / iTerm2 on macOS. Cursor/VS Code use editor font settings.
+    if test (uname) != Darwin
+        return
+    end
+
+    if command -q osascript
+        # Terminal.app — frontmost window profile font
+        osascript -e "tell application \"Terminal\" to set font name of settings set of selected tab of front window to \"$name\"" >/dev/null 2>&1
+        # iTerm2
+        osascript -e "tell application \"iTerm\" to tell current session of current window to set character encoding to \"UTF-8\"" >/dev/null 2>&1
+        osascript -e "tell application \"iTerm2\" to tell current session of current window to set font name to \"$name\"" >/dev/null 2>&1
+    end
+end
+
+function __gif_font_load_saved
+    set -l id (__gif_settings_get A font)
+    if test -n "$id"
+        set -gx GIF_FONT $id
+        set -gx GIF_FONT_NAME (__gif_font_display_name $id)
+    end
+end

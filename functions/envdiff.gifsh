@@ -1,0 +1,72 @@
+function envdiff --description "Snapshot env before/after a command and show the diff"
+    if test (count $argv) -gt 0; and contains -- $argv[1] --help -h
+        echo "Usage: envdiff [--] <command> [args...]"
+        echo "  Snapshot env vars before/after a command; print what changed."
+        return 0
+    end
+
+    if test (count $argv) -gt 0; and test "$argv[1]" = "--"
+        set argv $argv[2..-1]
+    end
+
+    if test (count $argv) -eq 0
+        echo "envdiff: missing command" >&2
+        return 1
+    end
+
+    set -l before (mktemp -t gif-envdiff-before)
+    set -l after (mktemp -t gif-envdiff-after)
+    env | sort > $before
+
+    # Run in a subshell so we can capture its exported env via printenv after
+    # For fish functions that mutate the current shell, run directly then snapshot.
+    eval $argv
+    set -l code $status
+    env | sort > $after
+
+    echo "── envdiff ──────────────────────────────"
+    set -l added (comm -13 $before $after)
+    set -l removed (comm -23 $before $after)
+
+    # Changed keys: same KEY= but different value
+    set -l before_keys
+    set -l after_keys
+    for line in (cat $before)
+        set -a before_keys (string split -m1 -f1 = -- $line)
+    end
+    for line in (cat $after)
+        set -a after_keys (string split -m1 -f1 = -- $line)
+    end
+
+    set -l changed 0
+    if test (count $removed) -gt 0
+        echo "removed:"
+        for line in $removed
+            echo "  - $line"
+            set changed 1
+        end
+    end
+    if test (count $added) -gt 0
+        echo "added / changed:"
+        for line in $added
+            set -l key (string split -m1 -f1 = -- $line)
+            set -l old (string match -r "^$key=.*" -- (cat $before))
+            if test -n "$old"
+                echo "  ~ $old"
+                echo "  → $line"
+            else
+                echo "  + $line"
+            end
+            set changed 1
+        end
+    end
+
+    if test $changed -eq 0
+        echo "(no env changes)"
+    end
+    echo "────────────────────────────────────────"
+    echo "exit: $code"
+
+    rm -f $before $after
+    return $code
+end
