@@ -4,6 +4,8 @@ This **shell** includes entire *settings*, and yes, still *free*
 
 ## How to install:
 
+**IMPORTANT**: This shell requires the FISH shell to already be installed. (```brew install fish```)
+
 run:
 ```bash
 git clone https://github.com/TooCaLabs/GIF-Shell.git
