@@ -9,6 +9,7 @@ This **shell** includes entire *settings*, and yes, still *free*
 run:
 ```bash
 git clone https://github.com/TooCaLabs/GIF-Shell.git
+cd GIF-Shell
 ./install.sh
 ```
 
@@ -24,5 +25,5 @@ Check `HOW_TO_USE.txt` after _downloading_ or *inside* the **source code**.
 # UPDATE
 
 ```sh
-cd /Users/goldknow/GIF && git pull && ./install.sh && exec gif
+rm -rf /tmp/GIF-Shell && git clone --depth 1 https://github.com/TooCaLabs/GIF-Shell.git /tmp/GIF-Shell && /tmp/GIF-Shell/install.sh && source ~/.config/gif/xdg/fish/config.fish
 ```
