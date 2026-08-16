@@ -14,8 +14,12 @@ function envdiff --description "Snapshot env before/after a command and show the
         return 1
     end
 
-    set -l before (mktemp -t gif-envdiff-before)
-    set -l after (mktemp -t gif-envdiff-after)
+    set -l tmpdir $TMPDIR
+    if test -z "$tmpdir"
+        set tmpdir /tmp
+    end
+    set -l before (mktemp "$tmpdir/gif-envdiff-before.XXXXXX")
+    set -l after (mktemp "$tmpdir/gif-envdiff-after.XXXXXX")
     env | sort > $before
 
     # Run in a subshell so we can capture its exported env via printenv after

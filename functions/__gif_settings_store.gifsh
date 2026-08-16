@@ -22,7 +22,11 @@ end
 function __gif_settings_set --argument-names category key value
     __gif_settings_ensure
     set -l f (__gif_settings_file)
-    set -l tmp (mktemp -t gif-settings)
+    set -l tmpdir $TMPDIR
+    if test -z "$tmpdir"
+        set tmpdir /tmp
+    end
+    set -l tmp (mktemp "$tmpdir/gif-settings.XXXXXX")
     set -l found 0
     if test -f $f
         while read -l line
